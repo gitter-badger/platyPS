@@ -596,9 +596,12 @@ function Convert-PsObjectsToMamlModel
 [OutputType([Markdown.MAML.Model.MAML.MamlCommand])]
 param(
     [Parameter(Mandatory=$true)]
-    $CmdletName
+    $CmdletName,
+    [Parameter(Mandatory=$true, ParameterSetName="FromMaml")]
+    [switch] $FromMaml,
+    [Parameter(Mandatory=$true, ParameterSetName="FromMaml")]
+    [string] $MamlFullPath
 )
-
 
     function IsCommonParameterName($parameterName)
     {
@@ -668,9 +671,34 @@ param(
 
 $MamlCommandObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlCommand
 
-$Help = Get-Help $CmdletName
-$Command = Get-Command $CmdletName
+if($FromMaml)
+{
+     
+    $Module = New-PlatyPSModuleFromMaml -MamlFilePath $MamlFullPath
 
+    Import-Module $Module.Path -Force -ea Stop
+    $allHelp = $Module.Cmdlets | Microsoft.PowerShell.Core\ForEach-Object {
+    $Cmdlet = $_
+    try
+    {
+        Microsoft.PowerShell.Core\Get-Help "$($Module.Name)\$Cmdlet" -Full 
+    }
+    catch 
+    {
+        Write-Warning "Exception happens on Get-Help $($Module.Name)\$Cmdlet : $_"
+    }
+
+    $Command = New-Object PsObject
+
+    $Command | Add-Member -Name "Name" -MemberType NoteProperty -Value $Cmdlet.Name
+    $Command | Add-Member -Name "CommandType" -MemberType NoteProperty -Value $Cmdlet.Category 
+   
+}
+else
+{
+    $Help = Get-Help $CmdletName
+    $Command = Get-Command $CmdletName
+}
 #####GET THE SYNTAX FROM THE GET-COMMAND $Command OBJECT #####
 #region Command Object Processing
 
@@ -921,7 +949,7 @@ foreach($Parameter in $ParameterArray)
 ##########
 
 return $MamlCommandObject
-
+}
 }
 #endregion
 
