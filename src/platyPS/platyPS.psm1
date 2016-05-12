@@ -691,14 +691,17 @@ if($FromMaml)
     $Command = New-Object PsObject
 
     $Command | Add-Member -Name "Name" -MemberType NoteProperty -Value $Cmdlet.Name
-    $Command | Add-Member -Name "CommandType" -MemberType NoteProperty -Value $Cmdlet.Category 
+    $Command | Add-Member -Name "CommandType" -MemberType NoteProperty -Value $Cmdlet.Category
+    $Command | Add-Member -Name "ModuleName" -MemberType NoteProperty -Value "Unknown" 
    
 }
 else
 {
-    $Help = Get-Help $CmdletName
     $Command = Get-Command $CmdletName
 }
+
+$Help = Get-Help $CmdletName
+
 #####GET THE SYNTAX FROM THE GET-COMMAND $Command OBJECT #####
 #region Command Object Processing
 
@@ -731,50 +734,79 @@ $MamlCommandObject.Notes = "The Cmdlet category is: " + $Command.CommandType + "
 #Reccomend adding a Parameter Name and Parameter Set Name to each input object.
 #region Inputs
 $Inputs = @()
-foreach($ParameterSet in $Command.ParameterSets)
+if(!$FromMaml)
 {
-    foreach($Parameter in $ParameterSet.Parameters)
+    foreach($ParameterSet in $Command.ParameterSets)
     {
-        if($Parameter.ValueFromPipeline -eq "True")
+        foreach($Parameter in $ParameterSet.Parameters)
         {
-            $InputObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlInputOutput
+            if($Parameter.ValueFromPipeline -eq "True")
+            {
+                $InputObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlInputOutput
 
-            $InputObject.TypeName = $Parameter.ParameterType.Name
+                $InputObject.TypeName = $Parameter.ParameterType.Name
 
-            $InputObject.Description = $Parameter.Name
+                $InputObject.Description = $Parameter.Name
 
-            $Inputs += $InputObject
-        }
-    }   
+                $Inputs += $InputObject
+            }
+        }   
+    }
+
+    $Inputs = $Inputs | Select -Unique
+    foreach($Input in $Inputs) {$MamlCommandObject.Inputs.Add($Input)}
 }
-
-$Inputs = $Inputs | Select -Unique
-foreach($Input in $Inputs) {$MamlCommandObject.Inputs.Add($Input)}
-
 #endregion
 
 #Get Outputs
 #No Output Type description is provided from the command object.
 #region Outputs
-
-$Outputs = @()
-foreach($OutputType in $Command.OutputType)
+if(!$FromMaml)
 {
-    $OutputObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlInputOutput
+    $Outputs = @()
+    foreach($OutputType in $Command.OutputType)
+    {
+        $OutputObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlInputOutput
 
-    $OutputObject.TypeName = $OutputType.Type
+        $OutputObject.TypeName = $OutputType.Type
 
-    $Outputs += $OutputObject
+        $Outputs += $OutputObject
     
+    }
+
+    $Outputs = $Outputs | Select -Unique
+    foreach($Output in $Outputs) {$MamlCommandObject.Outputs.Add($Output)}
 }
-
-$Outputs = $Outputs | Select -Unique
-foreach($Output in $Outputs) {$MamlCommandObject.Outputs.Add($Output)}
-
 #endregion
 
 #Get Syntax
 #region Get the Syntax Parameter Set objects
+
+if($FromMaml)
+{
+    $ParameterSetCount = 0
+
+    $Help.syntax.syntaxItem | % {
+
+        $SyntaxObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlSyntax
+        $SyntaxObject.ParameterSetName = ("Parameter Set: " + $ParameterSetCount)
+
+        $_.Parameter | WHERE {!(IsCommonParameterName($_.Name))} | % {
+        
+            $ParameterObject = New-Object -TypeName Markdown.MAML.Model.MAML.MamlParameter
+            $ParameterObject.Type = $_.ParameterValue
+            $ParameterObject.Name = $_.Name
+            $ParameterObject.Required = $_.Required
+            $ParameterObject.PipelineInput = $_.pipelineInput              
+
+        }
+    }
+
+
+    $MamlCommandObject.Syntax.Add($SyntaxObject)
+    $ParameterSetCount++
+    }
+}
 
 foreach($ParameterSet in $Command.ParameterSets)
 {
