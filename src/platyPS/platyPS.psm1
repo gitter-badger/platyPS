@@ -728,7 +728,7 @@ function Convert-PsObjectsToMamlModel
     #Reccomend adding a Parameter Name and Parameter Set Name to each input object.
     #region Inputs
     $Inputs = @()
-    if(!$FromMaml)
+    if((!$FromMaml) -and ($Command.HelpFile -eq $null -and $Help -eq $null))
     {
         foreach($ParameterSet in $Command.ParameterSets)
         {
@@ -769,7 +769,7 @@ function Convert-PsObjectsToMamlModel
     #No Output Type description is provided from the command object.
     #region Outputs
     $Outputs = @()
-    if(!$FromMaml)
+    if((!$FromMaml) -and ($Command.HelpFile -eq $null -and $Help -eq $null))
     {
         
         foreach($OutputType in $Command.OutputType)
